@@ -18,3 +18,9 @@ class SegMapPipelineConstants:
 
     # Model configuration paths.
     MIST_BRATS_CONFIG_PATH: str = str(PACKAGE_ROOT / "configs/brats2025.json")
+    MIST_BRATS_POSTPROCESS_PATH: str = str(
+        PACKAGE_ROOT / "configs/brats2025_postprocess.json"
+    )
+
+    # Model input channel order. MIST assigns channels by CSV column order.
+    IMAGE_CHANNEL_ORDER: tuple[str, ...] = ("t1", "t2", "tc", "fl")

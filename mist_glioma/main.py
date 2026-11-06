@@ -35,6 +35,11 @@ def main():
         action="store_true",
         help="Use previously cached model weights without network access.",
     )
+    parser.add_argument(
+        "--postprocess",
+        action="store_true",
+        help="Apply the BraTS 2025 postprocessing strategy to the tumor mask.",
+    )
     args = parser.parse_args()
 
     model_directories = get_model_directories(local_files_only=args.offline)
@@ -67,6 +72,7 @@ def main():
         brain_mask=data["brain_mask"],
         device=args.device,
         models_dir=model_directories["brats2025"],
+        postprocess=args.postprocess,
     )
     data["tumor_rc_mask"] = tumor_rc_mask
 

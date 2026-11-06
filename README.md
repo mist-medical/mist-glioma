@@ -73,6 +73,14 @@ The output directory contains:
 CPU inference is available with `--device cpu`, although GPU inference is
 recommended.
 
+Pass `--postprocess` to apply the BraTS 2025 postprocessing strategy, which is
+off by default. It keeps only the largest connected component of the tumor
+(labels 1, 2, and 3 together) and of the resection cavity, so it removes all but
+the largest lesion in multifocal disease.
+
+N4 bias field correction is used only to estimate the registrations. The images
+passed to HD-BET and the model keep their original intensities.
+
 ## Atlas
 
 The SRI24 atlas required by the registration pipeline is included at

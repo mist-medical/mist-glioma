@@ -1,5 +1,6 @@
 """Tests for tumor inference command construction."""
 
+import subprocess
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -19,71 +20,136 @@ class ImageOperand:
         return (self.name, "masked-with", other.name)
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda"])
-def test_run_mist_builds_expected_inputs_and_command(monkeypatch, tmp_path, device):
+@pytest.fixture
+def workspace(monkeypatch, tmp_path):
+    """Run run_mist in a known directory with ANTs I/O and models stubbed."""
+    state = {"tmp": tmp_path, "writes": [], "reads": [], "prediction": object()}
+    state["models_dir"] = tmp_path / "models dir"
     monkeypatch.setattr(
         segment_tumor.tempfile,
         "TemporaryDirectory",
         lambda: nullcontext(str(tmp_path)),
     )
-    writes = []
     monkeypatch.setattr(
         segment_tumor.ants,
         "image_write",
-        lambda image, path: writes.append((image, Path(path))),
+        lambda image, path: state["writes"].append((image, Path(path))),
         raising=False,
     )
-    prediction = object()
-    reads = []
     monkeypatch.setattr(
         segment_tumor.ants,
         "image_read",
-        lambda path: reads.append(Path(path)) or prediction,
+        lambda path: state["reads"].append(Path(path)) or state["prediction"],
         raising=False,
     )
-    commands = []
-
-    def call(command, **kwargs):
-        commands.append((command, kwargs, pd.read_csv(tmp_path / "input.csv")))
-        return 0
-
-    monkeypatch.setattr(segment_tumor.subprocess, "call", call)
-    images = [ImageOperand(name) for name in ("t1", "t2", "tc", "fl")]
-    mask = ImageOperand("brain")
-    models_dir = tmp_path / "models"
     monkeypatch.setattr(
         segment_tumor,
         "get_model_directories",
-        lambda: {"brats2025": models_dir},
+        lambda: {"brats2025": state["models_dir"]},
     )
+    return state
+
+
+def images():
+    """Return image keyword arguments in a deliberately non-canonical order."""
+    return {name: ImageOperand(name) for name in ("fl", "tc", "t2", "t1")}
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda"])
+def test_run_mist_builds_expected_inputs_and_command(monkeypatch, workspace, device):
+    tmp_path = workspace["tmp"]
+    models_dir = workspace["models_dir"]
+    runs = []
+
+    def run(command, **kwargs):
+        runs.append((command, kwargs, pd.read_csv(tmp_path / "input.csv")))
+        (tmp_path / "patient.nii.gz").touch()
+
+    monkeypatch.setattr(segment_tumor.subprocess, "run", run)
 
     result = segment_tumor.run_mist(
-        *images,
-        brain_mask=mask,
+        **images(),
+        brain_mask=ImageOperand("brain"),
         device=device,
         models_dir=models_dir if device == "cpu" else None,
     )
 
-    assert result is prediction
-    assert [item[0] for item in writes] == [
-        (name, "masked-with", "brain") for name in ("t1", "t2", "tc", "fl")
+    assert result is workspace["prediction"]
+    assert workspace["writes"] == [
+        ((name, "masked-with", "brain"), tmp_path / f"{name}.nii.gz")
+        for name in ("t1", "t2", "tc", "fl")
     ]
-    assert [item[1].name for item in writes] == [
-        "t1.nii.gz",
-        "t2.nii.gz",
-        "tc.nii.gz",
-        "fl.nii.gz",
+    command, kwargs, dataframe = runs[0]
+    assert command == [
+        "mist_predict",
+        "--models-dir",
+        str(models_dir),
+        "--config",
+        segment_tumor.constants.MIST_BRATS_CONFIG_PATH,
+        "--paths-csv",
+        str(tmp_path / "input.csv"),
+        "--output",
+        str(tmp_path),
+        "--device",
+        device,
     ]
-    command, kwargs, dataframe = commands[0]
-    assert command.startswith("mist_predict ")
-    assert f"--models-dir {models_dir}" in command
-    assert f"--config {segment_tumor.constants.MIST_BRATS_CONFIG_PATH}" in command
-    assert f"--paths-csv {tmp_path / 'input.csv'}" in command
-    assert f"--output {tmp_path}" in command
-    assert command.endswith(f"--device {device}")
-    assert "postprocess" not in command
-    assert kwargs["shell"] is True
-    assert kwargs["stdout"] is kwargs["stderr"]
+    assert kwargs == {"check": True}
     assert dataframe.columns.tolist() == ["id", "t1", "t2", "tc", "fl"]
     assert dataframe.loc[0, "id"] == "patient"
-    assert reads == [tmp_path / "patient.nii.gz"]
+    for name in ("t1", "t2", "tc", "fl"):
+        assert dataframe.loc[0, name] == str(tmp_path / f"{name}.nii.gz")
+    assert workspace["reads"] == [tmp_path / "patient.nii.gz"]
+
+
+def test_run_mist_requires_keyword_images():
+    with pytest.raises(TypeError):
+        segment_tumor.run_mist(*images().values(), brain_mask=ImageOperand("brain"))
+
+
+def test_run_mist_passes_postprocess_strategy(monkeypatch, workspace):
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        (workspace["tmp"] / "patient.nii.gz").touch()
+
+    monkeypatch.setattr(segment_tumor.subprocess, "run", run)
+
+    segment_tumor.run_mist(
+        **images(),
+        brain_mask=ImageOperand("brain"),
+        models_dir=workspace["models_dir"],
+        postprocess=True,
+    )
+
+    assert commands[0][-2:] == [
+        "--postprocess-strategy",
+        segment_tumor.constants.MIST_BRATS_POSTPROCESS_PATH,
+    ]
+
+
+def test_run_mist_propagates_command_failure(monkeypatch, workspace):
+    def run(command, **kwargs):
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(segment_tumor.subprocess, "run", run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        segment_tumor.run_mist(
+            **images(),
+            brain_mask=ImageOperand("brain"),
+            models_dir=workspace["models_dir"],
+        )
+
+
+def test_run_mist_reports_missing_prediction(monkeypatch, workspace):
+    monkeypatch.setattr(segment_tumor.subprocess, "run", lambda command, **kwargs: None)
+
+    with pytest.raises(RuntimeError, match="did not write a prediction"):
+        segment_tumor.run_mist(
+            **images(),
+            brain_mask=ImageOperand("brain"),
+            models_dir=workspace["models_dir"],
+        )
+
+    assert workspace["reads"] == []

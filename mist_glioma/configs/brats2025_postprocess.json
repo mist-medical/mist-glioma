@@ -1,0 +1,22 @@
+[
+    {
+        "transform": "get_top_k_connected_components",
+        "apply_to_labels": [1, 2, 3],
+        "per_label": false,
+        "kwargs": {
+            "top_k_connected_components": 1,
+            "apply_morphological_cleaning": false,
+            "morphological_cleaning_iterations": 2
+        }
+    },
+    {
+        "transform": "get_top_k_connected_components",
+        "apply_to_labels": [4],
+        "per_label": true,
+        "kwargs": {
+            "top_k_connected_components": 1,
+            "apply_morphological_cleaning": false,
+            "morphological_cleaning_iterations": 2
+        }
+    }
+]

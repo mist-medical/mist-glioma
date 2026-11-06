@@ -14,6 +14,7 @@ from .model_assets import get_model_directories
 
 
 def run_mist(
+    *,
     t1: ants.core.ants_image.ANTsImage,
     t2: ants.core.ants_image.ANTsImage,
     tc: ants.core.ants_image.ANTsImage,
@@ -21,8 +22,12 @@ def run_mist(
     brain_mask: ants.core.ants_image.ANTsImage,
     device: str = "cpu",
     models_dir: str | Path | None = None,
+    postprocess: bool = False,
 ) -> ants.core.ants_image.ANTsImage:
     """Run MIST tumor segmentation on images in BraTS/SRI space.
+
+    Images are keyword-only because MIST assigns model input channels by CSV
+    column order. The columns always follow constants.IMAGE_CHANNEL_ORDER.
 
     Args:
         t1: ANTsImage T1-weighted image.
@@ -31,32 +36,33 @@ def run_mist(
         fl: ANTsImage FLAIR-weighted image.
         brain_mask: ANTsImage brain mask (1 = brain, 0 = background).
         device: Device to run on: 'cpu' or 'cuda'.
+        models_dir: Directory containing the fold checkpoints. If None, it is
+            resolved with get_model_directories.
+        postprocess: Whether to apply the BraTS 2025 postprocessing strategy.
 
     Returns:
         ANTsImage of tumor segmentation mask with resection cavity.
+
+    Raises:
+        subprocess.CalledProcessError: If mist_predict exits with an error.
+        RuntimeError: If mist_predict exits normally without writing a
+            prediction, which is how it reports a per-patient failure.
     """
+    images = {"t1": t1, "t2": t2, "tc": tc, "fl": fl}
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Set up input files.
-        t1_path = os.path.join(tmpdir, "t1.nii.gz")
-        t2_path = os.path.join(tmpdir, "t2.nii.gz")
-        tc_path = os.path.join(tmpdir, "tc.nii.gz")
-        fl_path = os.path.join(tmpdir, "fl.nii.gz")
-
         # Multiply by brain mask to keep only brain regions.
-        ants.image_write(t1 * brain_mask, t1_path)
-        ants.image_write(t2 * brain_mask, t2_path)
-        ants.image_write(tc * brain_mask, tc_path)
-        ants.image_write(fl * brain_mask, fl_path)
+        image_paths = {}
+        for name in constants.IMAGE_CHANNEL_ORDER:
+            image_paths[name] = os.path.join(tmpdir, f"{name}.nii.gz")
+            ants.image_write(images[name] * brain_mask, image_paths[name])
 
-        # Create dataframe with columns "id", "t1", "t2", "tc", "fl". This is
-        # how data is passed to MIST.
+        # Create dataframe with an "id" column and one column per image. This
+        # is how data is passed to MIST.
         input_df = pd.DataFrame(
             {
                 "id": ["patient"],
-                "t1": [t1_path],
-                "t2": [t2_path],
-                "tc": [tc_path],
-                "fl": [fl_path],
+                **{name: [image_paths[name]] for name in constants.IMAGE_CHANNEL_ORDER},
             }
         )
 
@@ -67,17 +73,32 @@ def run_mist(
         if models_dir is None:
             models_dir = get_model_directories()["brats2025"]
 
-        # Run MIST command.
-        cmd = "mist_predict "
-        cmd += f"--models-dir {models_dir} "
-        cmd += f"--config {constants.MIST_BRATS_CONFIG_PATH} "
-        cmd += f"--paths-csv {input_csv} "
-        cmd += f"--output {tmpdir} "
-        cmd += f"--device {device}"
+        # Run MIST with its output visible, since that is where it reports
+        # per-patient and postprocessing errors.
+        command = [
+            "mist_predict",
+            "--models-dir",
+            str(models_dir),
+            "--config",
+            constants.MIST_BRATS_CONFIG_PATH,
+            "--paths-csv",
+            input_csv,
+            "--output",
+            tmpdir,
+            "--device",
+            device,
+        ]
+        if postprocess:
+            command += ["--postprocess-strategy", constants.MIST_BRATS_POSTPROCESS_PATH]
+        subprocess.run(command, check=True)
 
-        # Run the command in a shell. Suppress output to avoid cluttering logs.
-        with open(os.devnull, "w", encoding="utf-8") as devnull:
-            subprocess.call(cmd, shell=True, stdout=devnull, stderr=devnull)
+        # MIST catches per-patient errors and still exits normally.
+        prediction_path = os.path.join(tmpdir, "patient.nii.gz")
+        if not os.path.isfile(prediction_path):
+            raise RuntimeError(
+                "mist_predict did not write a prediction. See its output above "
+                "for the error."
+            )
 
-        # Read the output brain mask as an ANTs image.
-        return ants.image_read(os.path.join(tmpdir, "patient.nii.gz"))
+        # Read the output tumor mask as an ANTs image.
+        return ants.image_read(prediction_path)

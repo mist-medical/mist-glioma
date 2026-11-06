@@ -17,12 +17,13 @@ def move_to_brats_space(
 ) -> dict:
     """Move raw images to BraTS space.
 
-    This function takes raw neuroimaging data (T1, T2, TC, FL), applies
-    N4 bias field correction (a temporary step), co-registers the T1, T2, and FL
-    images to the TC image, registers the TC image to the SRI atlas, and
-    then applies the TC to SRI atlas transformation to the T1, T2, and FL
-    images. Additionally, this runs HD-BET on the TC image to create a binary
-    brain mask used later for normalization and segmentation.
+    This function takes raw neuroimaging data (T1, T2, TC, FL), co-registers the
+    T1, T2, and FL images to the TC image, registers the TC image to the SRI
+    atlas, and then applies the TC to SRI atlas transformation to all four
+    images. N4 bias field corrected copies are used only to estimate the
+    registrations, so the returned images keep their original intensities.
+    Additionally, this runs HD-BET on the TC image to create a binary brain mask
+    used later for normalization and segmentation.
 
     This function returns a dictionary containing the transformed images,
     the transformation matrices to move from the TC space to the SRI atlas and
@@ -40,7 +41,7 @@ def move_to_brats_space(
         A dictionary containing the following key-value pairs:
             - 't1': Transformed T1 image in SRI atlas space.
             - 't2': Transformed T2 image in SRI atlas space.
-            - 'tc': Original T1-weighted contrast-enhanced MRI image.
+            - 'tc': Transformed TC image in SRI atlas space.
             - 'fl': Transformed FL image in SRI atlas space.
             - 'brain_mask': Binary brain mask of TC image in SRI space.
             - 'tc_to_sri': Transformation matrix from TC space to SRI atlas
@@ -48,29 +49,42 @@ def move_to_brats_space(
             - 'sri_to_tc': Transformation matrix from SRI atlas space to TC
                 space.
     """
-    # Apply N4 bias field correction to each image. This is a temporary step
-    # that helps with image registration.
+    # Apply N4 bias field correction to each image. These copies are used only
+    # to estimate the registrations. The transforms are applied to the original
+    # images so that N4 corrected intensities never reach HD-BET or the model.
     t1_n4 = ants.n4_bias_field_correction(t1)
     t2_n4 = ants.n4_bias_field_correction(t2)
     tc_n4 = ants.n4_bias_field_correction(tc)
     fl_n4 = ants.n4_bias_field_correction(fl)
 
     # Co-register T1, T2, and FL images to the TC image.
-    t1 = ants.registration(
-        fixed=tc_n4,
-        moving=t1_n4,
-        type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-    )["warpedmovout"]
-    t2 = ants.registration(
-        fixed=tc_n4,
-        moving=t2_n4,
-        type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-    )["warpedmovout"]
-    fl = ants.registration(
-        fixed=tc_n4,
-        moving=fl_n4,
-        type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-    )["warpedmovout"]
+    t1 = ants.apply_transforms(
+        fixed=tc,
+        moving=t1,
+        transformlist=ants.registration(
+            fixed=tc_n4,
+            moving=t1_n4,
+            type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
+        )["fwdtransforms"],
+    )
+    t2 = ants.apply_transforms(
+        fixed=tc,
+        moving=t2,
+        transformlist=ants.registration(
+            fixed=tc_n4,
+            moving=t2_n4,
+            type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
+        )["fwdtransforms"],
+    )
+    fl = ants.apply_transforms(
+        fixed=tc,
+        moving=fl,
+        transformlist=ants.registration(
+            fixed=tc_n4,
+            moving=fl_n4,
+            type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
+        )["fwdtransforms"],
+    )
 
     # Register the TC image to the SRI atlas.
     tc_register = ants.registration(
@@ -95,7 +109,7 @@ def move_to_brats_space(
         ]
     )
 
-    # Apply the TC to SRI transformation to the T1, T2, and FL images.
+    # Apply the TC to SRI transformation to all four images.
     t1 = ants.apply_ants_transform_to_image(
         transform=forward_transforms,
         image=t1,
@@ -112,8 +126,11 @@ def move_to_brats_space(
         reference=sri_atlas,
     )
 
-    # Extract the TC image in SRI atlas space.
-    tc = tc_register["warpedmovout"]
+    tc = ants.apply_ants_transform_to_image(
+        transform=forward_transforms,
+        image=tc,
+        reference=sri_atlas,
+    )
 
     # Skull strip the TC image using HD-BET. This will produce a
     # binary brain mask that we will use later for normalization and

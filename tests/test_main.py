@@ -9,11 +9,14 @@ from mist_glioma import main
 
 
 @pytest.mark.parametrize(
-    ("device_args", "expected_device", "offline"),
-    [([], "cuda", False), (["--device", "cpu", "--offline"], "cpu", True)],
+    ("device_args", "expected_device", "offline", "postprocess"),
+    [
+        ([], "cuda", False, False),
+        (["--device", "cpu", "--offline", "--postprocess"], "cpu", True, True),
+    ],
 )
 def test_main_orchestrates_pipeline(
-    monkeypatch, tmp_path, capsys, device_args, expected_device, offline
+    monkeypatch, tmp_path, capsys, device_args, expected_device, offline, postprocess
 ):
     output = tmp_path / "output"
     argv = [
@@ -106,6 +109,7 @@ def test_main_orchestrates_pipeline(
             "brain_mask": "prepared-brain",
             "device": expected_device,
             "models_dir": model_directories["brats2025"],
+            "postprocess": postprocess,
         }
     ]
     assert transform_calls == [

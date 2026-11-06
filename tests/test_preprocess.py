@@ -22,10 +22,10 @@ def test_move_to_brats_space(monkeypatch):
     )
 
     registration_results = [
-        {"warpedmovout": "t1-coregistered"},
-        {"warpedmovout": "t2-coregistered"},
-        {"warpedmovout": "fl-coregistered"},
-        {"warpedmovout": "tc-in-atlas", "fwdtransforms": ["tx-1", "tx-2"]},
+        {"fwdtransforms": ["t1-to-tc"]},
+        {"fwdtransforms": ["t2-to-tc"]},
+        {"fwdtransforms": ["fl-to-tc"]},
+        {"fwdtransforms": ["tx-1", "tx-2"]},
     ]
     registration_calls = []
 
@@ -34,6 +34,16 @@ def test_move_to_brats_space(monkeypatch):
         return registration_results.pop(0)
 
     monkeypatch.setattr(preprocess.ants, "registration", registration, raising=False)
+    coregistration_calls = []
+
+    def apply_transforms(**kwargs):
+        coregistration_calls.append(kwargs)
+        name = next(n for n, v in inputs.items() if v is kwargs["moving"])
+        return f"{name}-coregistered"
+
+    monkeypatch.setattr(
+        preprocess.ants, "apply_transforms", apply_transforms, raising=False
+    )
     monkeypatch.setattr(
         preprocess.ants,
         "read_transform",
@@ -59,7 +69,8 @@ def test_move_to_brats_space(monkeypatch):
 
     def apply_transform(**kwargs):
         apply_calls.append(kwargs)
-        return f"atlas:{kwargs['image']}"
+        image = kwargs["image"]
+        return "tc-in-atlas" if image is inputs["tc"] else f"atlas:{image}"
 
     monkeypatch.setattr(
         preprocess.ants,
@@ -101,9 +112,23 @@ def test_move_to_brats_space(monkeypatch):
         ["read:tx-1", "read:tx-2"],
         ["inverse:read:tx-1", "inverse:read:tx-2"],
     ]
+    # Transforms are estimated on N4 images but applied to the original images.
+    assert coregistration_calls == [
+        {
+            "fixed": inputs["tc"],
+            "moving": inputs[name],
+            "transformlist": [f"{name}-to-tc"],
+        }
+        for name in ("t1", "t2", "fl")
+    ]
     assert apply_calls == [
         {"transform": "forward", "image": image, "reference": inputs["atlas"]}
-        for image in ("t1-coregistered", "t2-coregistered", "fl-coregistered")
+        for image in (
+            "t1-coregistered",
+            "t2-coregistered",
+            "fl-coregistered",
+            inputs["tc"],
+        )
     ]
     assert skull_strip_calls == [("tc-in-atlas", "cuda")]
     assert result == {
