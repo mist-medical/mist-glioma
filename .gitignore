@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+.eggs/
+*.egg-info/
+build/
+dist/
+
+# Model weights are distributed separately through Hugging Face.
+*.pt
+*.pth
+*.ckpt
+models/**
+!models/.gitkeep
+
+# Do not commit example or patient imaging data.
+data/examples/
+*.nii
+*.nii.gz
+!mist_glioma/data/atlases/sri24/spgr_unstrip.nii.gz

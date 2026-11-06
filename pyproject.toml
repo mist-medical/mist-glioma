@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mist-glioma"
+version = "0.1.0"
+description = "Adult pre- and post-operative glioma segmentation with MIST"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Adrian Celaya"},
+]
+dependencies = [
+    "antspyx",
+    "HD-BET",
+    "huggingface-hub>=0.25",
+    "mist-medical>=2.3.0",
+    "pandas",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+[project.urls]
+Homepage = "https://github.com/mist-medical/mist-glioma"
+Repository = "https://github.com/mist-medical/mist-glioma"
+
+[project.scripts]
+mist_glioma = "mist_glioma.main:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff",
+]
+
+[tool.setuptools.package-data]
+mist_glioma = [
+    "configs/*.json",
+    "data/atlases/sri24/LICENSE",
+    "data/atlases/sri24/*.nii.gz",
+]
+
+[tool.setuptools.packages.find]
+include = ["mist_glioma*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "--strict-config",
+    "--strict-markers",
+    "--cov=mist_glioma",
+    "--cov-report=term-missing",
+    "--cov-fail-under=98",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
