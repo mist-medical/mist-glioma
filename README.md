@@ -5,8 +5,8 @@ post-operative gliomas from multiparametric brain MRI. The underlying model
 placed third in the 2025 BraTS Adult Glioma Challenge.
 
 The pipeline accepts T1-weighted, T2-weighted, contrast-enhanced T1-weighted,
-and FLAIR volumes. It performs registration and HD-BET brain extraction before
-running a five-fold ensemble of pocket nnU-Net models with MIST.
+and FLAIR volumes. It performs Greedy registration with the settings of the CaPTk
+BraTS pipeline and HD-BET brain extraction before running a five-fold ensemble of pocket nnU-Net models with MIST.
 
 ## Segmentation labels
 
@@ -84,7 +84,9 @@ default and was not part of our BraTS 2025 entry, which used no postprocessing.
 It removes all but the largest lesion in multifocal disease.
 
 N4 bias field correction is used only to estimate the registrations. The images
-passed to HD-BET and the model keep their original intensities.
+passed to HD-BET and the model keep their original intensities, and each is
+resampled once. Registration can vary slightly between runs, so repeat runs on
+the same scan may not match voxel for voxel.
 
 ## Example data
 

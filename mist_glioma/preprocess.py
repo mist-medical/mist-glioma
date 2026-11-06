@@ -1,10 +1,17 @@
 """Preprocessing module for raw neuroimaging data."""
 
+import os
+import tempfile
+
 import ants
+import SimpleITK as sitk
+from picsl_greedy import Greedy3D
 
 # Custom imports.
 from . import segment_brain
 from .constants import SegMapPipelineConstants as constants
+
+TC_TO_SRI = "tc_to_sri"
 
 
 def move_to_brats_space(
@@ -17,17 +24,13 @@ def move_to_brats_space(
 ) -> dict:
     """Move raw images to BraTS space.
 
-    This function takes raw neuroimaging data (T1, T2, TC, FL), co-registers the
-    T1, T2, and FL images to the TC image, registers the TC image to the SRI
-    atlas, and then applies the TC to SRI atlas transformation to all four
-    images. N4 bias field corrected copies are used only to estimate the
-    registrations, so the returned images keep their original intensities.
-    Additionally, this runs HD-BET on the TC image to create a binary brain mask
-    used later for normalization and segmentation.
-
-    This function returns a dictionary containing the transformed images,
-    the transformation matrices to move from the TC space to the SRI atlas and
-    back, and a binary brain mask of the TC image in SRI space.
+    This function registers the TC image to the SRI atlas and the T1, T2, and FL
+    images to the TC image with Greedy, using the settings of the CaPTk BraTS
+    pipeline. N4 bias field corrected copies are used only to estimate the
+    registrations. Each original image is then resampled once to the atlas with
+    its combined transforms, so the returned images keep their original
+    intensities. Additionally, this runs HD-BET on the TC image to create a binary
+    brain mask used later for normalization and segmentation.
 
     Args:
         t1: ANTs image of T1-weighted MRI.
@@ -39,111 +42,107 @@ def move_to_brats_space(
 
     Returns:
         A dictionary containing the following key-value pairs:
-            - 't1': Transformed T1 image in SRI atlas space.
-            - 't2': Transformed T2 image in SRI atlas space.
-            - 'tc': Transformed TC image in SRI atlas space.
-            - 'fl': Transformed FL image in SRI atlas space.
+            - 't1': T1 image in SRI atlas space.
+            - 't2': T2 image in SRI atlas space.
+            - 'tc': TC image in SRI atlas space.
+            - 'fl': FL image in SRI atlas space.
             - 'brain_mask': Binary brain mask of TC image in SRI space.
-            - 'tc_to_sri': Transformation matrix from TC space to SRI atlas
-                space.
-            - 'sri_to_tc': Transformation matrix from SRI atlas space to TC
-                space.
+            - 'registration': Greedy instance for use with move_to_tc_space.
     """
-    # Apply N4 bias field correction to each image. These copies are used only
-    # to estimate the registrations. The transforms are applied to the original
-    # images so that N4 corrected intensities never reach HD-BET or the model.
-    t1_n4 = ants.n4_bias_field_correction(t1)
-    t2_n4 = ants.n4_bias_field_correction(t2)
-    tc_n4 = ants.n4_bias_field_correction(tc)
-    fl_n4 = ants.n4_bias_field_correction(fl)
+    # Greedy only reuses a transform in the instance that computed it, so one
+    # instance holds all of this subject's transforms.
+    greedy = Greedy3D()
+    atlas_sitk = _to_sitk(sri_atlas)
 
-    # Co-register T1, T2, and FL images to the TC image.
-    t1 = ants.apply_transforms(
-        fixed=tc,
-        moving=t1,
-        transformlist=ants.registration(
-            fixed=tc_n4,
-            moving=t1_n4,
-            type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-        )["fwdtransforms"],
-    )
-    t2 = ants.apply_transforms(
-        fixed=tc,
-        moving=t2,
-        transformlist=ants.registration(
-            fixed=tc_n4,
-            moving=t2_n4,
-            type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-        )["fwdtransforms"],
-    )
-    fl = ants.apply_transforms(
-        fixed=tc,
-        moving=fl,
-        transformlist=ants.registration(
-            fixed=tc_n4,
-            moving=fl_n4,
-            type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-        )["fwdtransforms"],
-    )
+    # These N4 corrected copies are used only to estimate the registrations. The
+    # transforms are applied to the original images so that N4 corrected
+    # intensities never reach HD-BET or the model.
+    tc_n4 = _to_sitk(ants.n4_bias_field_correction(tc))
+    _register_rigid(greedy, atlas_sitk, tc_n4, TC_TO_SRI)
 
-    # Register the TC image to the SRI atlas.
-    tc_register = ants.registration(
-        fixed=sri_atlas,
-        moving=tc_n4,
-        type_of_transform=constants.REGISTRATION_TRANSFORM_NAME,
-    )
-
-    # Convert the transformations to ANTsTransform format. This is necessary
-    # because the registration function seems to have a bug that
-    # overwrites the inverse transform with the forward transform. To get around
-    # this, we compose the forward transforms and then invert them to get the
-    # inverse transforms.
-    forward_transforms = ants.compose_ants_transforms(
-        [ants.read_transform(transform) for transform in tc_register["fwdtransforms"]]
-    )
-
-    inverse_transforms = ants.compose_ants_transforms(
-        [
-            ants.invert_ants_transform(ants.read_transform(transform))
-            for transform in tc_register["fwdtransforms"]
-        ]
-    )
-
-    # Apply the TC to SRI transformation to all four images.
-    t1 = ants.apply_ants_transform_to_image(
-        transform=forward_transforms,
-        image=t1,
-        reference=sri_atlas,
-    )
-    t2 = ants.apply_ants_transform_to_image(
-        transform=forward_transforms,
-        image=t2,
-        reference=sri_atlas,
-    )
-    fl = ants.apply_ants_transform_to_image(
-        transform=forward_transforms,
-        image=fl,
-        reference=sri_atlas,
-    )
-
-    tc = ants.apply_ants_transform_to_image(
-        transform=forward_transforms,
-        image=tc,
-        reference=sri_atlas,
-    )
+    images = {"tc": _resample(greedy, _to_sitk(tc), atlas_sitk, TC_TO_SRI)}
+    for name, image in (("t1", t1), ("t2", t2), ("fl", fl)):
+        to_tc = f"{name}_to_tc"
+        n4 = _to_sitk(ants.n4_bias_field_correction(image))
+        _register_rigid(greedy, tc_n4, n4, to_tc)
+        chain = f"{TC_TO_SRI} {to_tc}"
+        images[name] = _resample(greedy, _to_sitk(image), atlas_sitk, chain)
+    images = {name: _to_ants(image) for name, image in images.items()}
 
     # Skull strip the TC image using HD-BET. This will produce a
     # binary brain mask that we will use later for normalization and
     # generating maps.
-    brain_mask = segment_brain.run_hd_bet(tc, device=device)
+    brain_mask = segment_brain.run_hd_bet(images["tc"], device=device)
 
-    # Return the transformed images, brain mask, and transformation matrices.
-    return {
-        "t1": t1,
-        "t2": t2,
-        "tc": tc,
-        "fl": fl,
-        "brain_mask": brain_mask,
-        "tc_to_sri": forward_transforms,
-        "sri_to_tc": inverse_transforms,
-    }
+    return {**images, "brain_mask": brain_mask, "registration": greedy}
+
+
+def move_to_tc_space(
+    mask: ants.core.ants_image.ANTsImage,
+    registration: Greedy3D,
+    reference: ants.core.ants_image.ANTsImage,
+) -> ants.core.ants_image.ANTsImage:
+    """Move a label image from SRI atlas space back to the original TC space.
+
+    Args:
+        mask: Label image in SRI atlas space.
+        registration: The 'registration' value from move_to_brats_space.
+        reference: Original TC image, which defines the output grid.
+
+    Returns:
+        The label image on the grid of the reference image.
+    """
+    return _to_ants(
+        _resample(
+            registration,
+            _to_sitk(mask),
+            _to_sitk(reference),
+            f"{TC_TO_SRI},-1",
+            interpolation="NN",
+        )
+    )
+
+
+def _register_rigid(
+    greedy: Greedy3D, fixed: sitk.Image, moving: sitk.Image, transform: str
+) -> None:
+    """Register moving to fixed rigidly, caching the result under a name."""
+    greedy.execute(
+        f"-d 3 -V 0 -i fixed moving -o {transform} {constants.GREEDY_RIGID_OPTIONS}",
+        fixed=fixed,
+        moving=moving,
+        **{transform: None},
+    )
+
+
+def _resample(
+    greedy: Greedy3D,
+    image: sitk.Image,
+    reference: sitk.Image,
+    transforms: str,
+    interpolation: str = "LINEAR",
+) -> sitk.Image:
+    """Resample an image once onto a reference grid through named transforms."""
+    greedy.execute(
+        f"-d 3 -V 0 -rf reference -ri {interpolation} -rm image output -r {transforms}",
+        reference=reference,
+        image=image,
+        output=None,
+    )
+    return greedy["output"]
+
+
+def _to_sitk(image: ants.core.ants_image.ANTsImage) -> sitk.Image:
+    """Convert an ANTs image to SimpleITK, with NIfTI carrying the geometry."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "image.nii.gz")
+        ants.image_write(image, path)
+        return sitk.ReadImage(path, sitk.sitkFloat32)
+
+
+def _to_ants(image: sitk.Image) -> ants.core.ants_image.ANTsImage:
+    """Convert a SimpleITK image to ANTs, with NIfTI carrying the geometry."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, "image.nii.gz")
+        sitk.WriteImage(image, path)
+        return ants.image_read(path)

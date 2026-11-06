@@ -57,7 +57,7 @@ def test_main_orchestrates_pipeline(
         "tc": "prepared-tc",
         "fl": "prepared-fl",
         "brain_mask": "prepared-brain",
-        "sri_to_tc": "inverse-transform",
+        "registration": "greedy",
     }
     preprocess_calls = []
     monkeypatch.setattr(
@@ -73,13 +73,11 @@ def test_main_orchestrates_pipeline(
     )
     transform_calls = []
 
-    def apply_transform(**kwargs):
-        transform_calls.append(kwargs)
-        return f"restored:{kwargs['image']}"
+    def move_to_tc_space(mask, registration, reference):
+        transform_calls.append((mask, registration, reference))
+        return f"restored:{mask}"
 
-    monkeypatch.setattr(
-        main.ants, "apply_ants_transform_to_image", apply_transform, raising=False
-    )
+    monkeypatch.setattr(main.preprocess, "move_to_tc_space", move_to_tc_space)
     writes = []
     monkeypatch.setattr(
         main.ants,
@@ -113,12 +111,7 @@ def test_main_orchestrates_pipeline(
         }
     ]
     assert transform_calls == [
-        {
-            "transform": "inverse-transform",
-            "image": image,
-            "reference": "image:tc.nii.gz",
-            "interpolation": "nearestNeighbor",
-        }
+        (image, "greedy", "image:tc.nii.gz")
         for image in ("tumor-mask", "prepared-brain")
     ]
     assert writes == [

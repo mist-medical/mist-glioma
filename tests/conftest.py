@@ -13,3 +13,7 @@ ants_stub.core = types.SimpleNamespace(
     ants_image=types.SimpleNamespace(ANTsImage=ANTsImage)
 )
 sys.modules.setdefault("ants", ants_stub)
+
+greedy_stub = types.ModuleType("picsl_greedy")
+greedy_stub.Greedy3D = object
+sys.modules.setdefault("picsl_greedy", greedy_stub)

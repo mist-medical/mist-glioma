@@ -19,6 +19,7 @@ dependencies = [
     "mist-medical>=2.3.0",
     "numpy",
     "pandas",
+    "picsl_greedy",
     "SimpleITK",
 ]
 classifiers = [

@@ -4,4 +4,5 @@ HD-BET
 huggingface-hub>=0.25
 numpy
 pandas
+picsl_greedy
 SimpleITK

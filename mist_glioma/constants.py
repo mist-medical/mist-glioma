@@ -13,8 +13,8 @@ class SegMapPipelineConstants:
     # Path to SRI atlas.
     SRI_ATLAS_PATH: str = str(PACKAGE_ROOT / "data/atlases/sri24/spgr_unstrip.nii.gz")
 
-    # Registration transform name.
-    REGISTRATION_TRANSFORM_NAME: str = "Rigid"
+    # Greedy rigid registration options, from the CaPTk BraTS pipeline.
+    GREEDY_RIGID_OPTIONS: str = "-a -m NMI -ia-image-centers -n 100x50x10 -dof 6"
 
     # Model configuration paths.
     MIST_BRATS_CONFIG_PATH: str = str(PACKAGE_ROOT / "configs/brats2025.json")

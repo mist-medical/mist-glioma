@@ -79,17 +79,11 @@ def main():
 
     # Put segmentations and maps back into TC space.
     print("Putting segmentations and back into TC space.")
-    tumor_rc_mask = ants.apply_ants_transform_to_image(
-        transform=data["sri_to_tc"],
-        image=tumor_rc_mask,
-        reference=tc,
-        interpolation="nearestNeighbor",
+    tumor_rc_mask = preprocess.move_to_tc_space(
+        tumor_rc_mask, data["registration"], reference=tc
     )
-    brain_mask = ants.apply_ants_transform_to_image(
-        transform=data["sri_to_tc"],
-        image=data["brain_mask"],
-        reference=tc,
-        interpolation="nearestNeighbor",
+    brain_mask = preprocess.move_to_tc_space(
+        data["brain_mask"], data["registration"], reference=tc
     )
 
     # Save segmentations, maps, and brain mask in the output directory.

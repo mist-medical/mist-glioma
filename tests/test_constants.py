@@ -13,7 +13,7 @@ def test_runtime_paths_are_repository_relative():
     assert Path(constants.SRI_ATLAS_PATH).is_file()
     assert Path(constants.MIST_BRATS_CONFIG_PATH).is_file()
     assert Path(constants.MIST_BRATS_POSTPROCESS_PATH).is_file()
-    assert constants.REGISTRATION_TRANSFORM_NAME == "Rigid"
+    assert "-dof 6" in constants.GREEDY_RIGID_OPTIONS
 
 
 def test_channel_order_matches_model_config():
