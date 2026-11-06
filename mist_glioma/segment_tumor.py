@@ -38,7 +38,8 @@ def run_mist(
         device: Device to run on: 'cpu' or 'cuda'.
         models_dir: Directory containing the fold checkpoints. If None, it is
             resolved with get_model_directories.
-        postprocess: Whether to apply the BraTS 2025 postprocessing strategy.
+        postprocess: Whether to keep only the largest tumor and resection cavity
+            components. Our BraTS 2025 entry did not use this step.
 
     Returns:
         ANTsImage of tumor segmentation mask with resection cavity.

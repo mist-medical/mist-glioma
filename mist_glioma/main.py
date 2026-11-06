@@ -38,7 +38,7 @@ def main():
     parser.add_argument(
         "--postprocess",
         action="store_true",
-        help="Apply the BraTS 2025 postprocessing strategy to the tumor mask.",
+        help="Keep only the largest tumor and resection cavity components.",
     )
     args = parser.parse_args()
 

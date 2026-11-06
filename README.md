@@ -73,10 +73,10 @@ The output directory contains:
 CPU inference is available with `--device cpu`, although GPU inference is
 recommended.
 
-Pass `--postprocess` to apply the BraTS 2025 postprocessing strategy, which is
-off by default. It keeps only the largest connected component of the tumor
-(labels 1, 2, and 3 together) and of the resection cavity, so it removes all but
-the largest lesion in multifocal disease.
+Pass `--postprocess` to keep only the largest connected component of the tumor
+(labels 1, 2, and 3 together) and of the resection cavity. This step is off by
+default and was not part of our BraTS 2025 entry, which used no postprocessing.
+It removes all but the largest lesion in multifocal disease.
 
 N4 bias field correction is used only to estimate the registrations. The images
 passed to HD-BET and the model keep their original intensities.
