@@ -8,6 +8,11 @@ The pipeline accepts T1-weighted, T2-weighted, contrast-enhanced T1-weighted,
 and FLAIR volumes. It performs Greedy registration with the settings of the CaPTk
 BraTS pipeline and HD-BET brain extraction before running a five-fold ensemble of pocket nnU-Net models with MIST.
 
+The model is small. Each fold has 770,959 parameters and takes about 3.1 MB on
+disk, so the full ensemble is about 16 MB. MIST's standard-width version of this
+network has about 31.4 million parameters at the same patch size, about 41 times
+more.
+
 ## Segmentation labels
 
 | Value | Region |
