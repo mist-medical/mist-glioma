@@ -6,7 +6,7 @@ import os
 import ants
 
 # Custom imports.
-from . import preprocess, segment_tumor
+from . import image_io, preprocess, segment_tumor
 from .constants import SegMapPipelineConstants as constants
 from .model_assets import get_model_directories
 
@@ -17,10 +17,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Run pipeline for tumor segmentation, Ki67, and CD maps."
     )
-    parser.add_argument("--t1", required=True, help="Path to T1-weighted image.")
-    parser.add_argument("--t2", required=True, help="Path to T2-weighted image.")
-    parser.add_argument("--tc", required=True, help="Path to T1CE-weighted image.")
-    parser.add_argument("--fl", required=True, help="Path to FLAIR-weighted image.")
+    input_help = "NIfTI file or folder with one DICOM series for the {} image."
+    parser.add_argument("--t1", required=True, help=input_help.format("T1-weighted"))
+    parser.add_argument("--t2", required=True, help=input_help.format("T2-weighted"))
+    parser.add_argument("--tc", required=True, help=input_help.format("T1CE-weighted"))
+    parser.add_argument("--fl", required=True, help=input_help.format("FLAIR-weighted"))
     parser.add_argument(
         "--output", required=True, help="Output directory to save results."
     )
@@ -45,10 +46,10 @@ def main():
     model_directories = get_model_directories(local_files_only=args.offline)
 
     # Load raw images.
-    t1 = ants.image_read(args.t1)
-    t2 = ants.image_read(args.t2)
-    tc = ants.image_read(args.tc)
-    fl = ants.image_read(args.fl)
+    t1 = image_io.read_image(args.t1)
+    t2 = image_io.read_image(args.t2)
+    tc = image_io.read_image(args.tc)
+    fl = image_io.read_image(args.fl)
     sri_atlas = ants.image_read(constants.SRI_ATLAS_PATH)
 
     # Move images to standard BraTS/SRI space.

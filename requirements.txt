@@ -2,4 +2,6 @@ mist-medical>=2.3.0
 antspyx
 HD-BET
 huggingface-hub>=0.25
+numpy
 pandas
+SimpleITK

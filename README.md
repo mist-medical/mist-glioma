@@ -65,6 +65,11 @@ mist_glioma \
     --device cuda
 ```
 
+Each input can be a NIfTI file or a folder containing one DICOM series. You can
+mix the two. Outputs are always NIfTI. The tool stops with an error if a folder
+holds several series, has missing, repeated, or unevenly spaced slices, or uses
+gantry tilt or multi-frame files. Convert those series to NIfTI first.
+
 The output directory contains:
 
 - `tumor_rc_mask.nii.gz`: multiclass tumor and resection-cavity segmentation
@@ -80,6 +85,32 @@ It removes all but the largest lesion in multifocal disease.
 
 N4 bias field correction is used only to estimate the registrations. The images
 passed to HD-BET and the model keep their original intensities.
+
+## Example data
+
+To try the tool on a public case in DICOM format, download UPENN-GBM-00622 from
+The Cancer Imaging Archive (about 25 MB):
+
+```bash
+python examples/download_upenn_gbm_00622.py
+
+mist_glioma \
+    --t1 data/examples/UPENN-GBM-00622/t1 \
+    --t2 data/examples/UPENN-GBM-00622/t2 \
+    --tc data/examples/UPENN-GBM-00622/tc \
+    --fl data/examples/UPENN-GBM-00622/fl \
+    --output output/UPENN-GBM-00622 \
+    --device cuda
+```
+
+To run this end to end on a free GPU, open the
+[test notebook in Colab](https://colab.research.google.com/github/mist-medical/mist-glioma/blob/main/examples/test_mist_glioma_colab.ipynb).
+
+These images are defaced but otherwise in their original acquisition space. The
+[UPENN-GBM collection](https://doi.org/10.7937/TCIA.709X-DN49) is licensed under
+CC BY 4.0. If you use it, cite the collection as described on that page and
+follow the TCIA Data Usage Policy. The data is downloaded on demand and is not
+part of this repository.
 
 ## Atlas
 
