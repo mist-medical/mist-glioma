@@ -20,9 +20,11 @@ format and produces predictions in the native space of the contrast-enhanced T1
 
 If your images are already in BraTS format (registered to the SRI24 atlas and
 skull-stripped), skip this pipeline and run `mist_predict` from
-[MIST](https://github.com/mist-medical/MIST) directly, with these weights and the
-[BraTS 2025 config](mist_glioma/configs/brats2025.json). List the images in your paths CSV in the order `t1`,
-`t2`, `tc`, `fl`, because MIST assigns model channels by column order.
+[MIST](https://github.com/mist-medical/MIST) directly, with the
+[BraTS 2025 weights](https://huggingface.co/mist-medical/mist-glioma-brats2025) and
+[config](mist_glioma/configs/brats2025.json). List the images in your paths CSV in
+the order `t1`, `t2`, `tc`, `fl`, because MIST assigns model channels by column
+order.
 
 ## Segmentation labels
 
