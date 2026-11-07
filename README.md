@@ -4,7 +4,7 @@
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-weights-yellow)](https://huggingface.co/mist-medical/mist-glioma-brats2025)
 [![Paper](https://img.shields.io/badge/arXiv-2507.19626-b31b1b.svg)](https://arxiv.org/abs/2507.19626)
 [![Tests](https://github.com/mist-medical/mist-glioma/actions/workflows/tests.yml/badge.svg)](https://github.com/mist-medical/mist-glioma/actions/workflows/tests.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/mist-medical/mist-glioma/blob/main/LICENSE)
 
 **Raw brain MRI to glioma segmentation in one command.**
 
@@ -19,7 +19,7 @@ the native space of the contrast-enhanced T1 image.
 - **Pre- and post-operative.** It segments tumor subregions and the resection cavity.
 - **Small.** Each of the five models has fewer than 1 million parameters.
 
-![Contrast-enhanced T1 and FLAIR slices with the predicted tumor regions overlaid](docs/example_segmentation.png)
+![Contrast-enhanced T1 and FLAIR slices with the predicted tumor regions overlaid](https://raw.githubusercontent.com/mist-medical/mist-glioma/main/docs/example_segmentation.png)
 
 *MIST Glioma's output on public case UPENN-GBM-00622, from raw DICOM input. Images
 are from the [UPENN-GBM collection](https://doi.org/10.7937/TCIA.709X-DN49)
@@ -90,6 +90,22 @@ use them, cite the [collection](https://doi.org/10.7937/TCIA.709X-DN49) and foll
 the TCIA Data Usage Policy. The script downloads them on demand, so they are not
 part of this repository.
 
+### Docker
+
+The image includes the model weights, so it can run without network access:
+
+```bash
+docker run --rm --gpus all -v /path/to/data:/data mistmedical/mist-glioma \
+    mist_glioma \
+    --t1 /data/t1 \
+    --t2 /data/t2 \
+    --tc /data/t1ce \
+    --fl /data/flair \
+    --output /data/output \
+    --device cuda \
+    --offline
+```
+
 ## Performance
 
 These results are from [our paper](https://arxiv.org/abs/2507.19626), on the BraTS
@@ -131,7 +147,7 @@ If your images are already registered to the SRI24 atlas and skull-stripped, ski
 this pipeline and run `mist_predict` from
 [MIST](https://github.com/mist-medical/MIST) directly, with the
 [BraTS 2025 weights](https://huggingface.co/mist-medical/mist-glioma-brats2025) and
-[config](mist_glioma/configs/brats2025.json). List the images in your paths CSV in
+[config](https://github.com/mist-medical/mist-glioma/blob/main/mist_glioma/configs/brats2025.json). List the images in your paths CSV in
 the order `t1`, `t2`, `tc`, `fl`, because MIST assigns model channels by column
 order.
 
