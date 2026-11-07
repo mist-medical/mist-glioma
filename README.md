@@ -6,12 +6,23 @@ placed third in the 2025 BraTS Adult Glioma Challenge.
 
 The pipeline accepts T1-weighted, T2-weighted, contrast-enhanced T1-weighted,
 and FLAIR volumes. It performs Greedy registration with the settings of the CaPTk
-BraTS pipeline and HD-BET brain extraction before running a five-fold ensemble of pocket nnU-Net models with MIST.
+BraTS pipeline and HD-BET brain extraction before running a five-fold ensemble of
+pocket nnU-Net models with MIST.
 
 The model is small. Each fold has 770,959 parameters and takes about 3.1 MB on
 disk, so the full ensemble is about 16 MB. MIST's standard-width version of this
 network has about 31.4 million parameters at the same patch size, about 41 times
 more.
+
+MIST Glioma is end to end. It takes raw, unprocessed images in DICOM or NIfTI
+format and produces predictions in the native space of the contrast-enhanced T1
+(TC) image. You do not need to register or skull-strip anything first.
+
+If your images are already in BraTS format (registered to the SRI24 atlas and
+skull-stripped), skip this pipeline and run `mist_predict` from
+[MIST](https://github.com/mist-medical/MIST) directly, with these weights and the
+[BraTS 2025 config](mist_glioma/configs/brats2025.json). List the images in your paths CSV in the order `t1`,
+`t2`, `tc`, `fl`, because MIST assigns model channels by column order.
 
 ## Segmentation labels
 
