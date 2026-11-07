@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Download one example case from the UPENN-GBM collection on TCIA.
 
 The case is UPENN-GBM-00622, about 25 MB to download and 50 MB unpacked. Each

@@ -1,0 +1,20 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The tests replace ANTs, Greedy, HD-BET, and MIST with stand-ins, so they
+      # do not need the full inference stack.
+      - run: python -m pip install numpy pandas SimpleITK pytest pytest-cov ruff==0.17.4
+      - run: ruff check .
+      - run: pytest

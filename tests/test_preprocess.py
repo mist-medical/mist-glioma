@@ -78,10 +78,15 @@ def test_move_to_brats_space_uses_n4_only_for_registration(monkeypatch):
 
 def test_move_to_tc_space_inverts_with_nearest_neighbor(monkeypatch):
     monkeypatch.setattr(preprocess, "_to_sitk", lambda image: image)
-    monkeypatch.setattr(preprocess, "_to_ants", lambda image: f"ants:{image}")
+
+    class Converted:
+        def clone(self, pixel_type):
+            return f"restored:{pixel_type}"
+
+    monkeypatch.setattr(preprocess, "_to_ants", lambda image: Converted())
     greedy = FakeGreedy()
 
-    assert preprocess.move_to_tc_space("mask", greedy, "tc") == "ants:result:output"
+    assert preprocess.move_to_tc_space("mask", greedy, "tc") == "restored:unsigned char"
     command, images = greedy.calls[0]
     assert command == "-d 3 -V 0 -rf reference -ri NN -rm image output -r tc_to_sri,-1"
     assert images == {"reference": "tc", "image": "mask", "output": None}

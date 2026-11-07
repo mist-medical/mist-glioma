@@ -9,7 +9,7 @@ from picsl_greedy import Greedy3D
 
 # Custom imports.
 from . import segment_brain
-from .constants import SegMapPipelineConstants as constants
+from .constants import PipelineConstants as constants
 
 TC_TO_SRI = "tc_to_sri"
 
@@ -69,9 +69,8 @@ def move_to_brats_space(
         images[name] = _resample(greedy, _to_sitk(image), atlas_sitk, chain)
     images = {name: _to_ants(image) for name, image in images.items()}
 
-    # Skull strip the TC image using HD-BET. This will produce a
-    # binary brain mask that we will use later for normalization and
-    # generating maps.
+    # Skull strip the TC image using HD-BET. This will produce a binary brain
+    # mask that we will use later for normalization and segmentation.
     brain_mask = segment_brain.run_hd_bet(images["tc"], device=device)
 
     return {**images, "brain_mask": brain_mask, "registration": greedy}
@@ -90,7 +89,8 @@ def move_to_tc_space(
         reference: Original TC image, which defines the output grid.
 
     Returns:
-        The label image on the grid of the reference image.
+        The label image, as unsigned 8-bit integers, on the grid of the reference
+        image.
     """
     return _to_ants(
         _resample(
@@ -100,7 +100,7 @@ def move_to_tc_space(
             f"{TC_TO_SRI},-1",
             interpolation="NN",
         )
-    )
+    ).clone("unsigned char")
 
 
 def _register_rigid(

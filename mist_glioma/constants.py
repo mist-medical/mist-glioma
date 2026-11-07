@@ -1,4 +1,4 @@
-"""Constants dataclass for the segmentation/map pipeline."""
+"""Constants for the MIST Glioma pipeline."""
 
 import dataclasses
 from pathlib import Path
@@ -7,8 +7,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parent
 
 
 @dataclasses.dataclass(frozen=True)
-class SegMapPipelineConstants:
-    """Constants for the segmentation/map pipeline."""
+class PipelineConstants:
+    """Constants for the MIST Glioma pipeline."""
 
     # Path to SRI atlas.
     SRI_ATLAS_PATH: str = str(PACKAGE_ROOT / "data/atlases/sri24/spgr_unstrip.nii.gz")

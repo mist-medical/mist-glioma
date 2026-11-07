@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mist-glioma"
 version = "0.1.0"
-description = "Adult pre- and post-operative glioma segmentation with MIST"
+description = "End-to-end adult glioma segmentation from raw brain MRI with MIST"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}

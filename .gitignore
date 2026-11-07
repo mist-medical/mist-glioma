@@ -12,8 +12,7 @@ dist/
 *.pt
 *.pth
 *.ckpt
-models/**
-!models/.gitkeep
+models/
 
 # Do not commit example or patient imaging data.
 data/examples/

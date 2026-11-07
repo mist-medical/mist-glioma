@@ -1,4 +1,4 @@
-"""Main script to run the segmentation/maps pipeline."""
+"""Command-line entry point for MIST Glioma."""
 
 import argparse
 import os
@@ -7,15 +7,15 @@ import ants
 
 # Custom imports.
 from . import image_io, preprocess, segment_tumor
-from .constants import SegMapPipelineConstants as constants
+from .constants import PipelineConstants as constants
 from .model_assets import get_model_directories
 
 
 def main():
-    """Main function for orchestrating segmentation/map generation pipeline."""
+    """Segment a glioma from raw MRI and save the results."""
     # Parse command line arguments.
     parser = argparse.ArgumentParser(
-        description="Run pipeline for tumor segmentation, Ki67, and CD maps."
+        description="Segment adult gliomas from raw brain MRI."
     )
     input_help = "NIfTI file or folder with one DICOM series for the {} image."
     parser.add_argument("--t1", required=True, help=input_help.format("T1-weighted"))
@@ -75,10 +75,9 @@ def main():
         models_dir=model_directories["brats2025"],
         postprocess=args.postprocess,
     )
-    data["tumor_rc_mask"] = tumor_rc_mask
 
-    # Put segmentations and maps back into TC space.
-    print("Putting segmentations and back into TC space.")
+    # Put the segmentation and brain mask back into TC space.
+    print("Moving results back to the original TC space.")
     tumor_rc_mask = preprocess.move_to_tc_space(
         tumor_rc_mask, data["registration"], reference=tc
     )
@@ -86,7 +85,7 @@ def main():
         data["brain_mask"], data["registration"], reference=tc
     )
 
-    # Save segmentations, maps, and brain mask in the output directory.
+    # Save the segmentation and brain mask in the output directory.
     print(f"Saving results to {args.output}.")
     os.makedirs(args.output, exist_ok=True)
     ants.image_write(tumor_rc_mask, os.path.join(args.output, "tumor_rc_mask.nii.gz"))

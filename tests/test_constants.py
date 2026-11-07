@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 
-from mist_glioma.constants import PACKAGE_ROOT, SegMapPipelineConstants
+from mist_glioma.constants import PACKAGE_ROOT, PipelineConstants
 
 
 def test_runtime_paths_are_repository_relative():
-    constants = SegMapPipelineConstants()
+    constants = PipelineConstants()
 
     assert PACKAGE_ROOT == Path(__file__).resolve().parents[1] / "mist_glioma"
     assert Path(constants.SRI_ATLAS_PATH).is_file()
@@ -17,7 +17,7 @@ def test_runtime_paths_are_repository_relative():
 
 
 def test_channel_order_matches_model_config():
-    constants = SegMapPipelineConstants()
+    constants = PipelineConstants()
     config = json.loads(Path(constants.MIST_BRATS_CONFIG_PATH).read_text())
 
     assert constants.IMAGE_CHANNEL_ORDER == ("t1", "t2", "tc", "fl")
@@ -25,7 +25,7 @@ def test_channel_order_matches_model_config():
 
 
 def test_postprocess_strategy_uses_current_mist_schema():
-    constants = SegMapPipelineConstants()
+    constants = PipelineConstants()
     strategy = json.loads(Path(constants.MIST_BRATS_POSTPROCESS_PATH).read_text())
 
     # MIST ignores unknown kwargs, so a misspelled name would silently do nothing.

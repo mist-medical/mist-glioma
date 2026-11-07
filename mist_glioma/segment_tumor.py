@@ -9,7 +9,7 @@ import ants
 import pandas as pd
 
 # Custom imports.
-from .constants import SegMapPipelineConstants as constants
+from .constants import PipelineConstants as constants
 from .model_assets import get_model_directories
 
 
