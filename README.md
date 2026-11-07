@@ -35,7 +35,7 @@ Try it on a free GPU in
 or install it with Python 3.10 or newer:
 
 ```bash
-python -m pip install git+https://github.com/mist-medical/mist-glioma.git
+python -m pip install mist-glioma
 ```
 
 Then run it on all four images from one subject:
@@ -71,7 +71,8 @@ Weights download automatically on first use. CPU inference is available with
 
 ### Example data
 
-To run the tool locally on the public case above (about 25 MB):
+To run the tool on the public case above (about 25 MB), from a clone of this
+repository:
 
 ```bash
 python examples/download_upenn_gbm_00622.py
