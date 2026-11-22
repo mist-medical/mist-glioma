@@ -16,7 +16,7 @@ dependencies = [
     "antspyx",
     "HD-BET",
     "huggingface-hub>=0.25",
-    "mist-medical>=2.3.0",
+    "mist-medical>=3.0.0",
     "numpy",
     "pandas",
     "picsl_greedy",

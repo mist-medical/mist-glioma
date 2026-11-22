@@ -48,6 +48,7 @@ jobs:
           docker run --rm mist-glioma:test mist_predict --help
           docker run --rm mist-glioma:test hd-bet --help
           docker run --rm mist-glioma:test python -c "import torch; print(torch.__version__)"
+          docker run --rm mist-glioma:test python -c "from importlib.metadata import version; print('mist-medical', version('mist-medical'))"
       - name: Log in to Docker Hub
         if: env.PUSH == 'true'
         uses: docker/login-action@v3

@@ -1,4 +1,4 @@
-mist-medical>=2.3.0
+mist-medical>=3.0.0
 antspyx
 HD-BET
 huggingface-hub>=0.25

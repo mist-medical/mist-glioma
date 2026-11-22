@@ -159,6 +159,14 @@ Pass `--postprocess` to keep only the largest connected component of the tumor
 default and was not part of our BraTS 2025 entry, which used no postprocessing. It
 removes all but the largest lesion in multifocal disease.
 
+### MIST version
+
+MIST Glioma requires MIST 3.0 or later. Our BraTS 2025 entry was produced with MIST
+2.x, and MIST 3.0 restores predictions to the original image space by resampling
+class probabilities instead of labels, so segmentations can differ slightly at
+tumor boundaries from the submitted ones. To reproduce the submitted segmentations
+exactly, run `mist_predict` from MIST 2.4.1 with the weights and config above.
+
 ### Model weights
 
 Weights are hosted on

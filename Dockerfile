@@ -1,27 +1,27 @@
-# The base image and torch version are pinned together. Without the constraint,
-# pip can replace the image's torch while resolving HD-BET's dependencies.
-ARG PYTORCH_IMAGE=pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
-ARG TORCH_VERSION=2.9.1
-FROM ${PYTORCH_IMAGE}
+# MIST Glioma builds on the MIST image, which already has MIST 3, PyTorch 2.9.1,
+# cuDNN 9.15 or later (so BF16 inference runs at full speed), and a default
+# username, so the image runs under a numeric UID (docker run -u, Kubernetes
+# runAsUser). Keep MIST_IMAGE on a MIST release that MIST Glioma supports.
+ARG MIST_IMAGE=mistmedical/mist:3.0.0
+FROM ${MIST_IMAGE}
 
-# Set environment variables for non-interactive installation.
-ENV DEBIAN_FRONTEND=noninteractive \
-    PIP_BREAK_SYSTEM_PACKAGES=1 \
-    HF_HOME=/opt/huggingface
+ENV HF_HOME=/opt/huggingface
 
 # Install MIST Glioma from the checked-out source, so the image matches the commit
-# being built.
-ARG TORCH_VERSION
+# being built. The image's torch is pinned as a constraint; without it, pip can
+# replace torch while resolving HD-BET's dependencies.
 COPY . /tmp/mist-glioma
-RUN echo "torch==${TORCH_VERSION}" > /tmp/constraints.txt \
+RUN python -c "import torch; print('torch==' + torch.__version__.split('+')[0])" > /tmp/constraints.txt \
     && pip install --no-cache-dir --constraint /tmp/constraints.txt /tmp/mist-glioma \
     && rm -rf /tmp/mist-glioma /tmp/constraints.txt
+
+# Fail the build if installing MIST Glioma replaced the image's MIST 3 or its
+# newer cuDNN.
+RUN python -c "import torch; from importlib.metadata import version; m = version('mist-medical'); c = torch.backends.cudnn.version(); print('mist-medical', m, '| cuDNN', c); assert int(m.split('.')[0]) >= 3, m; assert c and c >= 91500, c"
 
 # Include the model weights so the image can run without network access.
 RUN python -c "from HD_BET.checkpoint_download import maybe_download_parameters; \
 from mist_glioma.model_assets import get_model_directories; \
 maybe_download_parameters(); get_model_directories()"
 
-# Create app directory.
-RUN mkdir /app
 WORKDIR /app
