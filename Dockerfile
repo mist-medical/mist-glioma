@@ -10,9 +10,15 @@ ENV HF_HOME=/opt/huggingface
 # Install MIST Glioma from the checked-out source, so the image matches the commit
 # being built. The image's torch is pinned as a constraint; without it, pip can
 # replace torch while resolving HD-BET's dependencies.
+#
+# Resolving torch's dependencies also puts back the cuDNN that PyTorch 2.9 pins
+# (9.10), which runs BF16 3D convolutions about 3x slower. So upgrade cuDNN again
+# afterwards, as MIST's own image does. pip warns that torch pins 9.10; PyTorch
+# works with the newer cuDNN.
 COPY . /tmp/mist-glioma
 RUN python -c "import torch; print('torch==' + torch.__version__.split('+')[0])" > /tmp/constraints.txt \
     && pip install --no-cache-dir --constraint /tmp/constraints.txt /tmp/mist-glioma \
+    && pip install --no-cache-dir -U "nvidia-cudnn-cu12>=9.15" \
     && rm -rf /tmp/mist-glioma /tmp/constraints.txt
 
 # Fail the build if installing MIST Glioma replaced the image's MIST 3 or its
